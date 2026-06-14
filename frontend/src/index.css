@@ -18,7 +18,7 @@
   /* Borders */
   --border-subtle: hsla(220, 20%, 30%, 0.2);
   --border-default: hsla(220, 20%, 40%, 0.25);
-  --border-accent: hsla(65, 95%, 55%, 0.3);
+  --border-accent: hsla(5, 90%, 55%, 0.3);
 
   /* Text */
   --text-primary: hsl(0, 0%, 95%);
@@ -27,8 +27,8 @@
   --text-inverse: hsl(225, 25%, 5%);
 
   /* Accent Colors */
-  --accent-primary: hsl(65, 95%, 55%);          /* Tennis ball yellow-green */
-  --accent-primary-dim: hsla(65, 95%, 55%, 0.15);
+  --accent-primary: hsl(5, 90%, 55%);          /* Aesthetic red */
+  --accent-primary-dim: hsla(5, 90%, 55%, 0.15);
   --accent-secondary: hsl(185, 85%, 55%);        /* Electric cyan */
   --accent-secondary-dim: hsla(185, 85%, 55%, 0.15);
 
@@ -45,15 +45,15 @@
   --color-info: hsl(210, 80%, 60%);
 
   /* Gradients */
-  --gradient-accent: linear-gradient(135deg, hsl(65, 95%, 55%), hsl(85, 90%, 45%));
+  --gradient-accent: linear-gradient(135deg, hsl(5, 90%, 55%), hsl(15, 90%, 45%));
   --gradient-card: linear-gradient(135deg, hsla(225, 20%, 14%, 0.9), hsla(225, 22%, 8%, 0.95));
-  --gradient-glow: radial-gradient(ellipse at center, hsla(65, 95%, 55%, 0.08), transparent 70%);
+  --gradient-glow: radial-gradient(ellipse at center, hsla(5, 90%, 55%, 0.08), transparent 70%);
 
   /* Shadows */
   --shadow-sm: 0 1px 3px hsla(0, 0%, 0%, 0.3);
   --shadow-md: 0 4px 12px hsla(0, 0%, 0%, 0.4);
   --shadow-lg: 0 8px 32px hsla(0, 0%, 0%, 0.5);
-  --shadow-glow: 0 0 20px hsla(65, 95%, 55%, 0.15);
+  --shadow-glow: 0 0 20px hsla(5, 90%, 55%, 0.15);
 
   /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -181,7 +181,7 @@ body {
 .badge-accent {
   background: var(--accent-primary-dim);
   color: var(--accent-primary);
-  border: 1px solid hsla(65, 95%, 55%, 0.2);
+  border: 1px solid hsla(5, 90%, 55%, 0.2);
 }
 
 .badge-live {
@@ -216,12 +216,12 @@ body {
 }
 
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 8px hsla(65, 95%, 55%, 0.15); }
-  50% { box-shadow: 0 0 20px hsla(65, 95%, 55%, 0.3); }
+  0%, 100% { box-shadow: 0 0 8px hsla(5, 90%, 55%, 0.15); }
+  50% { box-shadow: 0 0 20px hsla(5, 90%, 55%, 0.3); }
 }
 
 @keyframes value-flash {
-  0% { color: var(--accent-primary); text-shadow: 0 0 8px hsla(65, 95%, 55%, 0.4); }
+  0% { color: var(--accent-primary); text-shadow: 0 0 8px hsla(5, 90%, 55%, 0.4); }
   100% { color: var(--text-primary); text-shadow: none; }
 }
 
@@ -291,10 +291,9 @@ body {
 /* ── Main Content ────────────────────────────────────────────── */
 .main-content {
   flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 340px;
-  grid-template-rows: auto auto;
-  gap: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
   padding: var(--space-md) var(--space-xl);
   max-width: 1600px;
   width: 100%;
@@ -307,14 +306,10 @@ body {
 }
 
 .analytics-sidebar {
-  grid-column: 2;
-  grid-row: 1 / 3;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 340px 1fr;
   gap: var(--space-md);
-  max-height: calc(100vh - 80px);
-  overflow-y: auto;
-  padding-right: var(--space-xs);
+  width: 100%;
 }
 
 .bottom-panels {
@@ -749,21 +744,7 @@ body {
   }
 
   .analytics-sidebar {
-    grid-column: 1;
-    grid-row: auto;
-    flex-direction: row;
-    flex-wrap: wrap;
-    max-height: none;
-    overflow: visible;
-  }
-
-  .analytics-sidebar > * {
-    flex: 1;
-    min-width: 280px;
-  }
-
-  .bottom-panels {
-    grid-column: 1;
+    grid-template-columns: 1fr;
   }
 }
 

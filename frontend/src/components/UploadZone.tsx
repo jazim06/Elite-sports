@@ -15,9 +15,13 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const handleFile = useCallback(
     async (file: File) => {
+      if (file.size === 0) {
+        setError('File is empty or corrupted. If dragging from Apple Photos, try exporting it to your Desktop first.');
+        return;
+      }
+
       setError(null);
       setUploading(true);
       setProgress(0);

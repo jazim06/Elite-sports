@@ -5,7 +5,8 @@ from collections import deque
 class KinematicsEngine:
     def __init__(self):
         """
-        Engine for calculating 3D kinematics, joint angles, and velocities.
+        Engine for calculating joint angles and angular velocities.
+        Works with both MediaPipe and COCO (YOLOv8-Pose) keypoint formats.
         """
         # Store recent frames' joint angles to calculate velocities
         self.angle_history = {
@@ -18,6 +19,23 @@ class KinematicsEngine:
             "hip_left": deque(maxlen=5),
             "hip_right": deque(maxlen=5),
         }
+
+        # Joint angle definitions: (point_a, vertex, point_b) → angle name
+        # Using uppercase COCO names (compatible with both MediaPipe and our YOLO output)
+        self.joint_definitions = [
+            # Right Arm
+            ("RIGHT_SHOULDER", "RIGHT_ELBOW", "RIGHT_WRIST", "elbow_right"),
+            ("RIGHT_HIP", "RIGHT_SHOULDER", "RIGHT_ELBOW", "shoulder_right"),
+            # Left Arm
+            ("LEFT_SHOULDER", "LEFT_ELBOW", "LEFT_WRIST", "elbow_left"),
+            ("LEFT_HIP", "LEFT_SHOULDER", "LEFT_ELBOW", "shoulder_left"),
+            # Right Leg
+            ("RIGHT_HIP", "RIGHT_KNEE", "RIGHT_ANKLE", "knee_right"),
+            ("RIGHT_SHOULDER", "RIGHT_HIP", "RIGHT_KNEE", "hip_right"),
+            # Left Leg
+            ("LEFT_HIP", "LEFT_KNEE", "LEFT_ANKLE", "knee_left"),
+            ("LEFT_SHOULDER", "LEFT_HIP", "LEFT_KNEE", "hip_left"),
+        ]
         
     def calculate_3d_angle(self, p1, p2, p3):
         """
@@ -31,8 +49,8 @@ class KinematicsEngine:
             return 0.0
             
         # Create numpy arrays for vectors
-        v1 = np.array([p1['x'] - p2['x'], p1['y'] - p2['y'], p1['z'] - p2['z']])
-        v2 = np.array([p3['x'] - p2['x'], p3['y'] - p2['y'], p3['z'] - p2['z']])
+        v1 = np.array([p1['x'] - p2['x'], p1['y'] - p2['y'], p1.get('z', 0) - p2.get('z', 0)])
+        v2 = np.array([p3['x'] - p2['x'], p3['y'] - p2['y'], p3.get('z', 0) - p2.get('z', 0)])
         
         # Calculate magnitudes
         mag_v1 = np.linalg.norm(v1)
@@ -53,9 +71,13 @@ class KinematicsEngine:
 
     def analyze_pose(self, landmarks_3d):
         """
-        Analyze the 3D pose to calculate critical joint angles and kinematic sequence.
+        Analyze the pose to calculate critical joint angles and kinematic sequence.
+        
+        Works with any keypoint format (MediaPipe or COCO) as long as the
+        landmark names use uppercase format (e.g., RIGHT_SHOULDER).
+        
         Args:
-            landmarks_3d: Dictionary of MediaPipe landmarks (keys are string names)
+            landmarks_3d: Dictionary of landmarks (keys are uppercase string names)
         Returns:
             Dict containing calculated angles, velocities, and phase information.
         """
@@ -63,37 +85,19 @@ class KinematicsEngine:
             return {}
 
         angles = {}
-        
-        # Right Arm Kinematics
-        if all(k in landmarks_3d for k in ['RIGHT_SHOULDER', 'RIGHT_ELBOW', 'RIGHT_WRIST']):
-            angles["elbow_right"] = self.calculate_3d_angle(
-                landmarks_3d['RIGHT_SHOULDER'],
-                landmarks_3d['RIGHT_ELBOW'],
-                landmarks_3d['RIGHT_WRIST']
-            )
-            
-        if all(k in landmarks_3d for k in ['RIGHT_HIP', 'RIGHT_SHOULDER', 'RIGHT_ELBOW']):
-            angles["shoulder_right"] = self.calculate_3d_angle(
-                landmarks_3d['RIGHT_HIP'],
-                landmarks_3d['RIGHT_SHOULDER'],
-                landmarks_3d['RIGHT_ELBOW']
-            )
+        VISIBILITY_THRESHOLD = 0.3  # Skip low-confidence keypoints
 
-        # Right Leg Kinematics
-        if all(k in landmarks_3d for k in ['RIGHT_HIP', 'RIGHT_KNEE', 'RIGHT_ANKLE']):
-            angles["knee_right"] = self.calculate_3d_angle(
-                landmarks_3d['RIGHT_HIP'],
-                landmarks_3d['RIGHT_KNEE'],
-                landmarks_3d['RIGHT_ANKLE']
-            )
-
-        # Trunk/Hip Kinematics (Trunk Lean)
-        if all(k in landmarks_3d for k in ['RIGHT_SHOULDER', 'RIGHT_HIP', 'RIGHT_KNEE']):
-            angles["hip_right"] = self.calculate_3d_angle(
-                landmarks_3d['RIGHT_SHOULDER'],
-                landmarks_3d['RIGHT_HIP'],
-                landmarks_3d['RIGHT_KNEE']
-            )
+        for p1_name, vertex_name, p2_name, angle_name in self.joint_definitions:
+            if all(k in landmarks_3d for k in [p1_name, vertex_name, p2_name]):
+                # Check visibility/confidence for all three points
+                p1 = landmarks_3d[p1_name]
+                vertex = landmarks_3d[vertex_name]
+                p2 = landmarks_3d[p2_name]
+                
+                if (p1.get('visibility', 1) >= VISIBILITY_THRESHOLD and
+                    vertex.get('visibility', 1) >= VISIBILITY_THRESHOLD and
+                    p2.get('visibility', 1) >= VISIBILITY_THRESHOLD):
+                    angles[angle_name] = self.calculate_3d_angle(p1, vertex, p2)
             
         # Update history and calculate angular velocities
         velocities = {}
@@ -113,3 +117,4 @@ class KinematicsEngine:
             "angles": angles,
             "angular_velocities": velocities
         }
+

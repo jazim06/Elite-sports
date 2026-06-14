@@ -1,6 +1,17 @@
 """
 Tennia — Elite Biomechanics AI Coach
 FastAPI application entry point.
+
+ARCHITECTURE (Two-Pass):
+────────────────────────
+1. User uploads a video via POST /api/upload
+2. Backend processes the ENTIRE video in a background thread
+   (MediaPipe → Kinematics → AI Coach → saves results to .json)
+3. Frontend polls /api/status/{id} for progress (or uses WebSocket)
+4. Once done, frontend:
+   - Plays the video natively via HTML5 <video src="/api/video/{id}">
+   - Fetches analysis data from GET /api/analysis/{id}
+   - Draws skeleton overlay on a <canvas> synced to video time
 """
 import os
 import sys
@@ -12,13 +23,14 @@ from fastapi.middleware.cors import CORSMiddleware
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from routers import video, websocket
+from processing.analyzer import init_models
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize CV models on startup."""
     print("🎾 Tennia — Biomechanics AI Coach starting...")
-    websocket.init_models()
+    init_models()
     print("🚀 Server ready!")
     yield
     print("👋 Shutting down Tennia server.")
@@ -27,7 +39,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Tennia — Tennis Analytics Engine",
     description="Elite-level tennis analytics with real-time computer vision",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -49,7 +61,8 @@ app.include_router(websocket.router)
 async def root():
     return {
         "name": "Tennia",
-        "version": "0.1.0",
+        "version": "0.2.0",
+        "architecture": "two-pass",
         "status": "running",
         "description": "Tennis Analytics Engine — Upload a video to get started.",
     }

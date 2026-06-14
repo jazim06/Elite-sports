@@ -52,30 +52,57 @@ export interface SessionMetrics {
   player_distances_m: Record<number, number>;
 }
 
-// ── Frame Payload (WebSocket message) ───────────────────
-export interface FramePayload {
-  type: 'frame' | 'metadata' | 'complete' | 'error';
-  frame_number?: number;
+// ── Biomechanics Engine Types ─────────────────────────────
+export interface Landmark {
+  x: number;
+  y: number;
+  z?: number;
+  visibility?: number;
+}
+
+// ── Two-Pass Architecture Types ───────────────────────────
+export interface FrameData {
+  frame: number;
+  timestamp: number;
+  landmarks_2d: Record<string, { x: number; y: number; v?: number }>;
+  landmarks_3d?: Record<string, { x: number; y: number; z: number; v?: number }>;
+  joint_angles: Record<string, number> | null;
+  angular_velocity: Record<string, number> | null;
+}
+
+export interface AnalysisData {
+  video_id: string;
+  metadata: {
+    fps: number;
+    total_frames: number;
+    processed_frames: number;
+    width: number;
+    height: number;
+    duration_sec: number;
+    processing_time_sec: number;
+  };
+  frames: FrameData[];
+  coaching_notes: CoachingNote[];
+}
+
+export interface CoachingNote {
+  timestamp: string;
+  frame: number;
+  joint: string;
+  severity: 'warning' | 'error' | 'good';
+  flaw: string;
+  actual_angle: number;
+  optimal_range: [number, number];
+  impact: string;
+  drill: string;
+}
+
+// ── WebSocket Payload (Progress Only) ───────────────────
+export interface ProgressPayload {
+  type: 'progress' | 'complete' | 'error';
+  progress?: number;
+  current_frame?: number;
   total_frames?: number;
-  frame_data?: string; // base64 JPEG
-  player?: {
-    landmarks_3d?: Record<string, { x: number; y: number; z: number; visibility: number }>;
-    landmarks_2d?: Record<string, { x: number; y: number }>;
-    joint_angles_3d?: Record<string, number>;
-    angular_velocity?: Record<string, number>;
-  } | null;
-  // AI Coaching Notes
-  new_notes?: Array<{
-    timestamp: string;
-    frame: number;
-    joint: string;
-    severity: 'warning' | 'error' | 'good';
-    flaw: string;
-    angle: number;
-    optimal_range: string;
-    impact: string;
-    drill: string;
-  }>;
   all_notes?: Array<{
     timestamp: string;
     frame: number;

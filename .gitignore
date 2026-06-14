@@ -1,0 +1,42 @@
+# Python virtual environments
+.venv/
+backend/venv/
+venv/
+ENV/
+env/
+*.venv/
+
+# Python cache / compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Models and weights
+*.pt
+*.onnx
+*.engine
+
+# Media / uploads / temp files
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/test.mp4
+*.mp4
+*.json
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# VS Code settings
+.vscode/
+
+# Node modules
+node_modules/
+**/node_modules/
+dist/
+**/dist/
