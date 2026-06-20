@@ -1,6 +1,12 @@
 fastapi>=0.110
 uvicorn[standard]>=0.29
-ultralytics>=8.2
+ultralytics>=8.4  # YOLO26 (yolo26n-pose) ships in the v8.4.x asset releases
+# Pose inference backend (config.POSE_EXPORT_FORMAT). OpenVINO is the default and
+# fastest on Intel CPUs; onnx/onnxslim are needed for the one-time export step.
+openvino>=2024.0
+onnx>=1.16
+onnxslim
+# onnxruntime    # only if POSE_EXPORT_FORMAT="onnx"
 opencv-python-headless<4.10
 numpy<2
 python-multipart==0.0.9

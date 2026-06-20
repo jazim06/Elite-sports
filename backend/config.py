@@ -9,9 +9,20 @@ UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # ── YOLO Models ────────────────────────────────────────
-# Using nano variants for speed; swap to "m" or "l" for higher accuracy
-POSE_MODEL = "yolov8n-pose.pt"
+# Using nano variants for speed; swap to "s"/"m"/"l" for higher accuracy.
+# YOLO26n-pose: better keypoints (RLE), same 17 COCO keypoints (drop-in).
+POSE_MODEL = "yolo26n-pose.pt"
 DETECT_MODEL = "yolov8n.pt"
+
+# ── Pose inference backend ─────────────────────────────
+# IMPORTANT: YOLO26's speed advantage only appears in an *exported* runtime.
+# Measured on the 2019 Intel Mac (i7-9750H, 480px): yolo26n-pose raw PyTorch =
+# ~94 ms/frame, but OpenVINO = ~27 ms (square-480) — ~3.5x faster. The model is
+# auto-exported once on first load and cached; later runs reuse the artifact.
+#   ""/None → raw PyTorch .pt   |  "openvino" (best on Intel)  |  "onnx" (portable)
+#   later targets: "coreml" (Apple/iPhone), "engine" (TensorRT/Jetson)
+POSE_EXPORT_FORMAT = "openvino"
+POSE_IMGSZ = 480  # square export size; letterboxes any aspect (portrait/landscape)
 
 # ── CV Pipeline ────────────────────────────────────────
 CONFIDENCE_THRESHOLD = 0.5

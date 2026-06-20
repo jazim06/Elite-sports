@@ -1,13 +1,21 @@
 """
-Pose Estimator — YOLOv8m-Pose (COCO 17-keypoint format)
+Pose Estimator — YOLO26-Pose (2D, COCO 17-keypoint format) + MediaPipe (3D)
 
-WHY YOLOv8-Pose INSTEAD OF MEDIAPIPE:
+This class runs TWO engines per frame:
+  - YOLO26n-pose  → 2D keypoints for the video overlay (17 COCO keypoints)
+  - MediaPipe Pose → 3D world landmarks (33), the source of the 3D view + angles
+
+WHY YOLO26-Pose FOR 2D:
 ──────────────────────────────────────
-- Significantly more accurate joint localization for sports
-- Better handles occlusion, fast movement, and unusual angles
+- ~31-43% faster CPU inference than YOLOv8n (our main constraint on Intel Mac)
+- More accurate keypoint localization (RLE) — better on fast/occluded swings
 - COCO-trained: robust to diverse human poses and camera angles
-- The medium variant (yolov8m-pose) is the sweet spot for accuracy vs speed
-- Built-in tracking (BoTSORT) for multi-person scenarios
+- Same 17 COCO keypoints as YOLOv8 → drop-in (no data-contract change)
+- CoreML-exportable for the planned on-device iPhone path
+
+NOTE: MediaPipe is the *temporary* 3D source. It is a single-camera monocular
+*estimate*, not triangulation, and is slated for removal in Phase 1c once
+multi-camera triangulation provides metric 3D + joint angles (see plan).
 
 COCO 17 KEYPOINTS:
   0: nose         5: left_shoulder   11: left_hip
@@ -18,10 +26,13 @@ COCO 17 KEYPOINTS:
                   10: right_wrist    16: right_ankle
 """
 
+import os
 import numpy as np
 from ultralytics import YOLO
 import mediapipe as mp
 import ssl
+
+from config import POSE_EXPORT_FORMAT, POSE_IMGSZ
 
 # Fix for macOS Python SSL Certificate errors when MediaPipe downloads models
 try:
@@ -49,31 +60,72 @@ COCO_KEYPOINT_NAMES = [
 COCO_TO_UPPER = {name: name.upper() for name in COCO_KEYPOINT_NAMES}
 
 
+# Exported-artifact filename per format (relative to CWD, like the .pt weights)
+_EXPORT_ARTIFACT = {
+    "openvino": lambda base: f"{base}_openvino_model",
+    "onnx": lambda base: f"{base}.onnx",
+    "coreml": lambda base: f"{base}.mlpackage",
+    "engine": lambda base: f"{base}.engine",  # TensorRT
+}
+
+
+def _load_pose_model(model_name: str, export_format: str, imgsz: int):
+    """
+    Load the YOLO pose model, optionally via a faster exported runtime.
+
+    YOLO26's CPU speedup only materializes in an exported backend (OpenVINO/ONNX/
+    CoreML/TensorRT), not raw PyTorch eager mode. The exported artifact is built
+    once on first load and cached next to the weights; later runs reuse it.
+    Falls back to raw PyTorch if export is disabled or fails.
+    """
+    if not export_format:
+        return YOLO(model_name)
+
+    base = model_name[:-3] if model_name.endswith(".pt") else model_name
+    artifact_fn = _EXPORT_ARTIFACT.get(export_format)
+    if artifact_fn is None:
+        print(f"⚠️  Unknown POSE_EXPORT_FORMAT '{export_format}', using raw PyTorch.")
+        return YOLO(model_name)
+
+    artifact = artifact_fn(base)
+    if os.path.exists(artifact):
+        return YOLO(artifact, task="pose")
+
+    try:
+        print(f"⏳ Exporting {model_name} → {export_format} (one-time, imgsz={imgsz})…")
+        exported = YOLO(model_name).export(format=export_format, imgsz=imgsz, verbose=False)
+        return YOLO(exported, task="pose")
+    except Exception as e:  # robust fallback — never break startup over an export
+        print(f"⚠️  {export_format} export failed ({e}); falling back to raw PyTorch.")
+        return YOLO(model_name)
+
+
 class Pose3DEstimator:
     """
-    YOLOv8-Pose based pose estimator.
-    
-    Despite the class name (kept for backward compatibility), this now uses
-    YOLOv8m-Pose for 2D keypoint detection. The 'z' coordinate is set to 0
-    since YOLO provides 2D keypoints — but the angle calculations still work
-    correctly because the kinematics engine uses 3D vectors and the z=0 case
-    degenerates to a 2D angle calculation.
+    YOLO-Pose (2D) + MediaPipe (3D) pose estimator.
+
+    The class name is kept for backward compatibility. It uses YOLO26n-pose for
+    2D keypoint detection and MediaPipe for the 3D world landmarks that drive the
+    3D view and joint-angle math.
     """
 
-    def __init__(self, model_name: str = "yolov8n-pose.pt"):
+    def __init__(self, model_name: str = "yolo26n-pose.pt",
+                 export_format: str = POSE_EXPORT_FORMAT, imgsz: int = POSE_IMGSZ):
         """
-        Load YOLOv8-Pose model.
-        
+        Load the YOLO pose model (via an exported runtime for CPU speed) + MediaPipe.
+
         Args:
-            model_name: Model variant. Options:
-                - yolov8n-pose.pt  (nano, ~7MB, fastest)
-                - yolov8s-pose.pt  (small, ~24MB)
-                - yolov8m-pose.pt  (medium, ~50MB, best balance)
-                - yolov8l-pose.pt  (large, ~84MB, most accurate)
+            model_name: Ultralytics pose model. Options:
+                - yolo26n-pose.pt  (nano, fastest — current default)
+                - yolo26s-pose.pt / yolo26m-pose.pt / yolo26l-pose.pt (more accurate)
+                - yolov8n-pose.pt  (previous engine; still supported)
+            export_format: inference backend (see config.POSE_EXPORT_FORMAT).
+                "" → raw PyTorch; "openvino"/"onnx"/"coreml"/"engine" → exported.
+            imgsz: square export size (letterboxes any aspect ratio).
         """
-        print(f"⏳ Loading YOLOv8-Pose model: {model_name}")
-        self.model = YOLO(model_name)
-        print(f"✅ YOLOv8-Pose loaded: {model_name}")
+        print(f"⏳ Loading YOLO-Pose model: {model_name} (backend: {export_format or 'pytorch'})")
+        self.model = _load_pose_model(model_name, export_format, imgsz)
+        print(f"✅ YOLO-Pose loaded: {model_name}")
 
         print("⏳ Loading MediaPipe Pose for 3D World coordinates...")
         self.mp_pose = mp.solutions.pose

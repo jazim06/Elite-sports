@@ -36,7 +36,7 @@ from concurrent.futures import ThreadPoolExecutor
 # Add backend directory to path to fix ModuleNotFoundError during uvicorn multiprocessing
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from config import UPLOAD_DIR
+from config import UPLOAD_DIR, POSE_MODEL
 from cv_pipeline.pose_3d import Pose3DEstimator
 from analytics.kinematics import KinematicsEngine, summarize_biomechanics
 from analytics.coach_llm import AICoach
@@ -52,8 +52,8 @@ _ai_coach: AICoach = None
 def init_models():
     """Load ML models. Called once on server startup."""
     global _pose_3d, _ai_coach
-    print("⏳ Loading YOLOv8-Pose model...")
-    _pose_3d = Pose3DEstimator()
+    print(f"⏳ Loading pose model: {POSE_MODEL} ...")
+    _pose_3d = Pose3DEstimator(POSE_MODEL)
     _ai_coach = AICoach()
     print("✅ Biomechanics engine ready!")
 

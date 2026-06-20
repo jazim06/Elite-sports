@@ -11,10 +11,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Models and weights
+# Models and weights (incl. auto-exported inference backends)
 *.pt
 *.onnx
 *.engine
+*.mlpackage
+*_openvino_model/
 
 # Media / uploads / temp files
 backend/uploads/*
