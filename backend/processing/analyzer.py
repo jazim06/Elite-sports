@@ -38,7 +38,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from config import UPLOAD_DIR
 from cv_pipeline.pose_3d import Pose3DEstimator
-from analytics.kinematics import KinematicsEngine
+from analytics.kinematics import KinematicsEngine, summarize_biomechanics
 from analytics.coach_llm import AICoach
 
 # Thread pool for running CPU-heavy processing without blocking the async server
@@ -92,8 +92,6 @@ def _process_video_sync(video_path: str, video_info: dict) -> dict:
 
     # ── Per-video analytics state ─────────────────────────
     kinematics = KinematicsEngine()
-    coaching_notes = []    # All coaching notes for the entire video
-    seen_flaws = set()     # Deduplicate: don't repeat the same flaw
     frames_data = []       # Per-frame analysis results
 
     frame_num = 0
@@ -101,7 +99,6 @@ def _process_video_sync(video_path: str, video_info: dict) -> dict:
     # The frontend interpolation logic handles the gaps perfectly.
     process_every_n = 2 if fps > 45 else 1
     processed_count = 0
-    ai_check_interval = 15 # Check AI rules every N processed frames
 
     print(f"🎬 Processing video: {total_frames} frames @ {fps:.1f} fps")
     start_time = time.time()
@@ -152,16 +149,6 @@ def _process_video_sync(video_path: str, video_info: dict) -> dict:
                 frame_entry["joint_angles"] = kinematics_data.get("angles", {})
                 frame_entry["angular_velocity"] = kinematics_data.get("angular_velocities", {})
 
-                # Check AI coaching rules at intervals
-                if processed_count % ai_check_interval == 0 and kinematics_data.get("angles"):
-                    frame_notes = _ai_coach.analyze_frame(frame_num, fps, kinematics_data)
-
-                    for note in frame_notes:
-                        flaw_key = (note["joint"], note["flaw"])
-                        if flaw_key not in seen_flaws:
-                            seen_flaws.add(flaw_key)
-                            coaching_notes.append(note)
-
             frames_data.append(frame_entry)
 
             # Update progress for the frontend to poll
@@ -181,6 +168,14 @@ def _process_video_sync(video_path: str, video_info: dict) -> dict:
     print(f"✅ Processing complete: {processed_count} frames in {elapsed:.1f}s "
           f"({processed_count/elapsed:.1f} fps)")
 
+    # ── Two-pass: smooth, compute segment velocities, score kinematic sequence ──
+    print("📐 Running biomechanics summarizer...")
+    kinematic_sequence = summarize_biomechanics(frames_data, fps)
+
+    # ── Phase-aware coaching (uses contact frame + sequence order) ──────────
+    coaching_notes = _ai_coach.analyze(frames_data, kinematic_sequence, fps)
+    print(f"💬 Generated {len(coaching_notes)} coaching note(s)")
+
     # ── Build the final analysis result ───────────────────
     analysis = {
         "video_id": video_info["id"],
@@ -197,6 +192,7 @@ def _process_video_sync(video_path: str, video_info: dict) -> dict:
         },
         "frames": frames_data,
         "coaching_notes": coaching_notes,
+        "kinematic_sequence": kinematic_sequence,
     }
 
     # Save to JSON file alongside the video

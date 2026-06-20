@@ -61,13 +61,46 @@ export interface Landmark {
 }
 
 // ── Two-Pass Architecture Types ───────────────────────────
+export interface SegmentVelocity {
+  pelvis: number;  // deg/sec — rotation speed of pelvis line in transverse plane
+  trunk:  number;  // deg/sec — rotation speed of shoulder line in transverse plane
+  arm:    number;  // deg/sec — angular speed of upper-arm unit vector
+  hand:   number;  // deg/sec — angular speed of forearm unit vector
+}
+
+export interface KinematicSequence {
+  detected: boolean;
+  dominant_side?: 'RIGHT' | 'LEFT';
+  contact_frame?: number;
+  contact_time?: number;
+  phases?: {
+    windup:         [number, number];
+    acceleration:   [number, number];
+    contact:        number;
+    follow_through: [number, number];
+  };
+  peaks?: Record<'pelvis' | 'trunk' | 'arm' | 'hand', {
+    frame: number;
+    time: number;
+    speed_deg_per_sec: number;
+  }>;
+  order?: string[];
+  is_proximal_to_distal?: boolean;
+  sequence_score?: number;
+  hip_shoulder_separation?: {
+    peak_deg: number;
+    peak_time: number;
+  };
+}
+
 export interface FrameData {
   frame: number;
   timestamp: number;
   landmarks_2d: Record<string, { x: number; y: number; v?: number }>;
   landmarks_3d?: Record<string, { x: number; y: number; z: number; v?: number }>;
   joint_angles: Record<string, number> | null;
-  angular_velocity: Record<string, number> | null;
+  angular_velocity: Record<string, number> | null;  // deg/sec; keys suffixed _vel
+  segment_velocity?: SegmentVelocity | null;
 }
 
 export interface AnalysisData {
@@ -83,6 +116,7 @@ export interface AnalysisData {
   };
   frames: FrameData[];
   coaching_notes: CoachingNote[];
+  kinematic_sequence?: KinematicSequence;
 }
 
 export interface CoachingNote {

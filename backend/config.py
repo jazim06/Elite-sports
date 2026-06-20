@@ -38,6 +38,31 @@ ANGLE_CAUTION_MIN = 90
 ANGLE_CAUTION_MAX = 120
 # Below 90 = injury risk zone
 
+# ── Biomechanics Thresholds ────────────────────────────
+# Coaching-derived approximations (not lab-validated; see roadmap for validation plan).
+# Phase labels: "loading" = wind-up position, "contact" = frame of peak hand angular speed.
+BIOMECH_THRESHOLDS = {
+    # Knee bend angle at loading phase (degrees)
+    "knee_bend_loading_min": 110.0,
+    "knee_bend_loading_max": 140.0,
+    # Elbow extension at contact frame (degrees)
+    "elbow_extension_contact_min": 160.0,
+    "elbow_extension_contact_max": 180.0,
+    # Hip-shoulder X-factor: abs separation below this → coaching note (degrees)
+    "hip_shoulder_separation_min": 20.0,
+    # Sequence timing: plausible inter-peak gap between consecutive segments (seconds)
+    "sequence_min_gap_sec": 0.01,
+    "sequence_max_gap_sec": 0.15,
+}
+
+# ── Smoothing ──────────────────────────────────────────
+# Zero-lag Butterworth low-pass for joint angle / orientation time series.
+# Falls back to forward-backward moving average when series is too short.
+SMOOTHING = {
+    "cutoff_hz": 6.0,  # Low-pass cutoff frequency
+    "order": 4,        # Butterworth filter order; len(coefficients) = order+1 = 5 → padlen = 14
+}
+
 # ── Kalman Filter ──────────────────────────────────────
 KALMAN_PROCESS_NOISE = 0.03
 KALMAN_MEASUREMENT_NOISE = 0.5

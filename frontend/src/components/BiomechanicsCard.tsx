@@ -40,7 +40,7 @@ export function BiomechanicsCard({ player }: BiomechanicsCardProps) {
                 style={{ width: `${barWidth}%` }}
               />
             </div>
-            <span className="angle-value">{value}°</span>
+            <span className="angle-value">{value.toFixed(1)}°</span>
           </div>
         );
       })}

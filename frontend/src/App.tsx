@@ -18,6 +18,7 @@ import type {
   AnalysisData,
   FrameData,
   ProgressPayload,
+  KinematicSequence,
 } from './utils/types';
 
 function App() {
@@ -104,26 +105,22 @@ function App() {
       }
     : null;
 
-  // We need to convert the full analysis frame array into the format the chart expects
-  // But we only want to show the current 60 frames (sliding window)
   const getChartData = () => {
     if (!analysisData || !activeFrame) return [];
-    
-    // Find index of current frame
     const currentIndex = analysisData.frames.findIndex(f => f.frame === activeFrame.frame);
     if (currentIndex === -1) return [];
-
-    // Get window of 60 frames ending at current
     const startIdx = Math.max(0, currentIndex - 60);
-    const windowFrames = analysisData.frames.slice(startIdx, currentIndex + 1);
-
-    return windowFrames.map((f) => ({
-      frame: f.frame,
-      hip_vel: f.angular_velocity?.hip_right_vel || 0,
-      shoulder_vel: f.angular_velocity?.shoulder_right_vel || 0,
-      elbow_vel: f.angular_velocity?.elbow_right_vel || 0,
+    return analysisData.frames.slice(startIdx, currentIndex + 1).map((f) => ({
+      frame:  f.frame,
+      pelvis: f.segment_velocity?.pelvis ?? 0,
+      trunk:  f.segment_velocity?.trunk  ?? 0,
+      arm:    f.segment_velocity?.arm    ?? 0,
+      hand:   f.segment_velocity?.hand   ?? 0,
     }));
   };
+
+  const kinematicSequence: KinematicSequence | null =
+    analysisData?.kinematic_sequence ?? null;
 
   return (
     <div className="app">
@@ -168,7 +165,7 @@ function App() {
 
           {/* Bottom: Kinematic Sequence */}
           <section className="bottom-panels" style={{ gridTemplateColumns: '1fr' }}>
-            <KinematicSequenceChart data={getChartData()} />
+            <KinematicSequenceChart data={getChartData()} kinematicSequence={kinematicSequence} />
           </section>
         </main>
       )}
